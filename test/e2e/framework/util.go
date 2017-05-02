@@ -83,6 +83,7 @@ import (
 	"k8s.io/kubernetes/pkg/client/clientset_generated/clientset"
 	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	"k8s.io/kubernetes/pkg/client/conditions"
+	"k8s.io/kubernetes/pkg/cloudprovider/providers/azure"
 	gcecloud "k8s.io/kubernetes/pkg/cloudprovider/providers/gce"
 	"k8s.io/kubernetes/pkg/controller"
 	deploymentutil "k8s.io/kubernetes/pkg/controller/deployment/util"
@@ -311,6 +312,12 @@ func SkipUnlessAtLeast(value int, minValue int, message string) {
 func SkipIfProviderIs(unsupportedProviders ...string) {
 	if ProviderIs(unsupportedProviders...) {
 		Skipf("Not supported for providers %v (found %s)", unsupportedProviders, TestContext.Provider)
+	}
+}
+
+func SkipUnlessSSHKeyPresent() {
+	if _, err := GetSigner(TestContext.Provider); err != nil {
+		Skipf("No SSH Key for provider %s: '%v'", TestContext.Provider, err)
 	}
 }
 
@@ -5509,4 +5516,13 @@ func (f *Framework) NewTestPod(name string, requests v1.ResourceList, limits v1.
 func CreateEmptyFileOnPod(namespace string, podName string, filePath string) error {
 	_, err := RunKubectl("exec", fmt.Sprintf("--namespace=%s", namespace), podName, "--", "/bin/sh", "-c", fmt.Sprintf("touch %s", filePath))
 	return err
+}
+
+// GetAzureCloud returns azure cloud provider
+func GetAzureCloud() (*azure.Cloud, error) {
+	cloud, ok := TestContext.CloudConfig.Provider.(*azure.Cloud)
+	if !ok {
+		return nil, fmt.Errorf("failed to convert CloudConfig.Provider to Azure: %#v", TestContext.CloudConfig.Provider)
+	}
+	return cloud, nil
 }
