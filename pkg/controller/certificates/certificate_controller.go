@@ -23,10 +23,13 @@ import (
 	"time"
 
 	certificates "k8s.io/api/certificates/v1beta1"
+	rbac "k8s.io/api/rbac/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	certificatesinformers "k8s.io/client-go/informers/certificates/v1beta1"
+	rbacinformers "k8s.io/client-go/informers/rbac/v1beta1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -53,6 +56,7 @@ type CertificateController struct {
 func NewCertificateController(
 	kubeClient clientset.Interface,
 	csrInformer certificatesinformers.CertificateSigningRequestInformer,
+	rbacInformer rbacinformers.ClusterRoleBindingInformer,
 	handler func(*certificates.CertificateSigningRequest) error,
 ) (*CertificateController, error) {
 	// Send events to the apiserver
@@ -96,6 +100,43 @@ func NewCertificateController(
 			cc.enqueueCertificateRequest(obj)
 		},
 	})
+
+	// Retry certificate approvals when there has been an update to RBAC bindings.
+	retryCSRs := func() {
+		csrs, err := cc.csrLister.List(labels.Everything())
+		if err != nil {
+			glog.Errorf("Unable to list certificates after RBAC update: %v", err)
+			return
+		}
+		for _, csr := range csrs {
+			complete := false
+			for _, condition := range csr.Status.Conditions {
+				if condition.Type == certificates.CertificateApproved || condition.Type == certificates.CertificateDenied {
+					complete = true
+				}
+			}
+			if !complete {
+				cc.enqueueCertificateRequest(csr)
+			}
+		}
+	}
+	rbacInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			clusterRoleBinding := obj.(*rbac.ClusterRoleBinding)
+			glog.V(4).Infof("Cluster role binding %s was added. Will retry pending CSRs.", clusterRoleBinding.Name)
+			retryCSRs()
+		},
+		UpdateFunc: func(old, new interface{}) {
+			clusterRoleBinding := new.(*rbac.ClusterRoleBinding)
+			glog.V(4).Infof("Cluster role binding %s was updated. Will retry pending CSRs.", clusterRoleBinding.Name)
+			retryCSRs()
+		},
+		DeleteFunc: func(obj interface{}) {
+			glog.V(4).Infof("A cluster role binding was deleted. Will retry pending CSRs.")
+			retryCSRs()
+		},
+	})
+
 	cc.csrLister = csrInformer.Lister()
 	cc.csrsSynced = csrInformer.Informer().HasSynced
 	cc.handler = handler

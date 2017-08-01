@@ -57,6 +57,7 @@ func TestCertificateController(t *testing.T) {
 	controller, err := NewCertificateController(
 		client,
 		informerFactory.Certificates().V1beta1().CertificateSigningRequests(),
+		informerFactory.Rbac().V1beta1().ClusterRoleBindings(),
 		handler,
 	)
 	if err != nil {

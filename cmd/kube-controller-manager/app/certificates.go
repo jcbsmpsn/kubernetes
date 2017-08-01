@@ -40,6 +40,7 @@ func startCSRSigningController(ctx ControllerContext) (bool, error) {
 	signer, err := signer.NewCSRSigningController(
 		c,
 		ctx.InformerFactory.Certificates().V1beta1().CertificateSigningRequests(),
+		ctx.InformerFactory.Rbac().V1beta1().ClusterRoleBindings(),
 		ctx.Options.ClusterSigningCertFile,
 		ctx.Options.ClusterSigningKeyFile,
 		ctx.Options.ClusterSigningDuration.Duration,
@@ -62,6 +63,7 @@ func startCSRApprovingController(ctx ControllerContext) (bool, error) {
 	approver, err := approver.NewCSRApprovingController(
 		c,
 		ctx.InformerFactory.Certificates().V1beta1().CertificateSigningRequests(),
+		ctx.InformerFactory.Rbac().V1beta1().ClusterRoleBindings(),
 	)
 	if err != nil {
 		// TODO this is failing consistently in test-cmd and local-up-cluster.sh.  Fix them and make it consistent with all others which

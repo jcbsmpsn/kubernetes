@@ -27,6 +27,7 @@ import (
 
 	capi "k8s.io/api/certificates/v1beta1"
 	certificatesinformers "k8s.io/client-go/informers/certificates/v1beta1"
+	rbacinformers "k8s.io/client-go/informers/rbac/v1beta1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/pkg/controller/certificates"
 
@@ -39,6 +40,7 @@ import (
 func NewCSRSigningController(
 	client clientset.Interface,
 	csrInformer certificatesinformers.CertificateSigningRequestInformer,
+	rbacInformer rbacinformers.ClusterRoleBindingInformer,
 	caFile, caKeyFile string,
 	certificateDuration time.Duration,
 ) (*certificates.CertificateController, error) {
@@ -49,6 +51,7 @@ func NewCSRSigningController(
 	return certificates.NewCertificateController(
 		client,
 		csrInformer,
+		rbacInformer,
 		signer.handle,
 	)
 }

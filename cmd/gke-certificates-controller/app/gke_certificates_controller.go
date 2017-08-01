@@ -80,6 +80,7 @@ func Run(s *GKECertificatesController) error {
 	controller, err := certificates.NewCertificateController(
 		client,
 		sharedInformers.Certificates().V1beta1().CertificateSigningRequests(),
+		sharedInformers.Rbac().V1beta1().ClusterRoleBindings(),
 		signer.handle,
 	)
 	if err != nil {

@@ -27,6 +27,7 @@ import (
 	capi "k8s.io/api/certificates/v1beta1"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	certificatesinformers "k8s.io/client-go/informers/certificates/v1beta1"
+	rbacinformers "k8s.io/client-go/informers/rbac/v1beta1"
 	clientset "k8s.io/client-go/kubernetes"
 	k8s_certificates_v1beta1 "k8s.io/kubernetes/pkg/apis/certificates/v1beta1"
 	"k8s.io/kubernetes/pkg/controller/certificates"
@@ -44,7 +45,11 @@ type sarApprover struct {
 	recognizers []csrRecognizer
 }
 
-func NewCSRApprovingController(client clientset.Interface, csrInformer certificatesinformers.CertificateSigningRequestInformer) (*certificates.CertificateController, error) {
+func NewCSRApprovingController(
+	client clientset.Interface,
+	csrInformer certificatesinformers.CertificateSigningRequestInformer,
+	rbacInformer rbacinformers.ClusterRoleBindingInformer,
+) (*certificates.CertificateController, error) {
 	approver := &sarApprover{
 		client:      client,
 		recognizers: recognizers(),
@@ -52,6 +57,7 @@ func NewCSRApprovingController(client clientset.Interface, csrInformer certifica
 	return certificates.NewCertificateController(
 		client,
 		csrInformer,
+		rbacInformer,
 		approver.handle,
 	)
 }
